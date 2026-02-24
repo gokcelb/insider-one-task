@@ -1,0 +1,6 @@
+bin/
+.idea/
+.vscode/
+.claude/
+loadtest/results.json
+.DS_Store
