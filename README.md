@@ -39,7 +39,7 @@ Submit an event for ingestion.
   "channel": "web",
   "campaign_id": "summer_sale_2024",
   "user_id": "user_12345",
-  "timestamp": 1708732800000,
+  "timestamp": 1708732800,
   "tags": ["electronics", "featured"],
   "metadata": {
     "product_id": "SKU-001",
@@ -57,7 +57,7 @@ Submit an event for ingestion.
 
 - `event_name`: Required
 - `user_id`: Required
-- `timestamp`: Required, Unix milliseconds
+- `timestamp`: Required, Unix seconds
 - `channel`: Must be one of: web, mobile, api, email, push (or empty)
 
 ### GET /metrics
@@ -70,7 +70,7 @@ Query aggregated metrics.
 - `event_name` (required): Event name to filter by
 - `from`: Unix timestamp in seconds (default: 24 hours ago)
 - `to`: Unix timestamp in seconds (default: now)
-- `group_by`: Supports "channel" or "hour"
+- `group_by`: Supports "channel", "hour", or "day"
 
 **Example:**
 

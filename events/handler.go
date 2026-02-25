@@ -1,8 +1,10 @@
 package events
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -27,6 +29,13 @@ type EventRequest struct {
 	Metadata   map[string]any `json:"metadata" binding:"omitempty"`
 }
 
+func validateTimestamp(ts int64) error {
+	if ts <= 0 || ts > time.Now().Unix() {
+		return fmt.Errorf("invalid timestamp: must be a positive Unix timestamp in seconds, not in the future")
+	}
+	return nil
+}
+
 func (r *EventRequest) toEvent() Event {
 	return Event{
 		EventName:  r.EventName,
@@ -40,7 +49,7 @@ func (r *EventRequest) toEvent() Event {
 }
 
 type BulkEventRequest struct {
-	Events []EventRequest `json:"events" binding:"required,dive"`
+	Events []EventRequest `json:"events" binding:"required,max=10000,dive"`
 }
 
 type EventResponse struct {
@@ -55,6 +64,13 @@ func (h *Handler) PostEvent(c *gin.Context) {
 	var req EventRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, ErrorResponse{
+			Error: err.Error(),
+		})
+		return
+	}
+
+	if err := validateTimestamp(req.Timestamp); err != nil {
 		c.JSON(http.StatusBadRequest, ErrorResponse{
 			Error: err.Error(),
 		})
@@ -84,6 +100,15 @@ func (h *Handler) PostEventBulk(c *gin.Context) {
 			Error: err.Error(),
 		})
 		return
+	}
+
+	for i, r := range req.Events {
+		if err := validateTimestamp(r.Timestamp); err != nil {
+			c.JSON(http.StatusBadRequest, ErrorResponse{
+				Error: fmt.Sprintf("event[%d]: %s", i, err.Error()),
+			})
+			return
+		}
 	}
 
 	events := make([]Event, len(req.Events))

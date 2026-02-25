@@ -29,6 +29,8 @@ func (r *MetricsRepository) GetMetrics(ctx context.Context, eventName string, st
 		groupCol = "channel"
 	case "hour":
 		groupCol = "toString(toStartOfHour(timestamp))"
+	case "day":
+		groupCol = "toString(toStartOfDay(timestamp))"
 	}
 
 	selectClause := "count() AS total_count, uniq(user_id) AS unique_users"

@@ -22,7 +22,7 @@ type MetricsQueryParams struct {
 	EventName string `form:"event_name" binding:"required"`
 	From      int64  `form:"from" binding:"omitempty"`
 	To        int64  `form:"to" binding:"omitempty"`
-	GroupBy   string `form:"group_by" binding:"omitempty,oneof=channel hour"`
+	GroupBy   string `form:"group_by" binding:"omitempty,oneof=channel hour day"`
 }
 
 func (p *MetricsQueryParams) toMetricsQuery() MetricsQuery {
