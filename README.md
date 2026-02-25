@@ -247,9 +247,9 @@ Below are the two important requirements that allow us to make certain optimizat
 
 #### 2. Kafka publish: synchronous vs. fire-and-forget
 
-**Optimization:** I'm synchronously pushing events to the Kafka/Redpanda topic — the handler waits for the broker to acknowledge the write before returning `202 Accepted`. This way, accepted events are durable and won't be silently dropped if the ClickHouse consumer restarts.
+**Optimization:** I'm using a message broker Redpanda to take the load off the application layer and prevent congestions. I'm synchronously pushing events to the Kafka/Redpanda topic, which means the handler waits for the broker to acknowledge the write before returning `202 Accepted`. This way, accepted events are durable and won't be silently dropped if the ClickHouse consumer restarts.
 
-**Trade-off:** Waiting for the broker acknowledgement is slower than fire-and-forget. But my load test results show it's still fast enough (average **~15.9 ms**, p95 **~40 ms**), so **R2** is satisfied in practice. The better choice here really depends on the durability requirements. If losing some events under extreme load is acceptable, fire-and-forget would be faster.
+**Trade-off:** Waiting for the broker acknowledgement is slower than fire-and-forget. But my load test results show it's still fast enough (average **~15 ms**, p95 **40-50 ms**), so **R2** is satisfied in practice. The better choice here really depends on the durability requirements. If losing some events under extreme load is acceptable, fire-and-forget would be faster.
 
 #### Ingestion flow: API → Kafka → ClickHouse (async batch)
 
@@ -263,7 +263,8 @@ Below are the two important requirements that allow us to make certain optimizat
 Below are some TODOs which I would have implemented given more time, as well as some that are for production-grade apps.
 
 - [ ] Structured logging & request logging middleware
+- [ ] Use ClickHouse config instead of hardcoding Kafka broker config
 - [ ] Unit and integration tests
 - [ ] Authentication
 - [ ] OpenAPI/Swagger documentation
-- [ ] Monitoring & Alerting
+- [ ] Monitoring & Alerting (for production)
