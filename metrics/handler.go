@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -21,10 +22,10 @@ type MetricsQueryParams struct {
 	EventName string `form:"event_name" binding:"required"`
 	From      int64  `form:"from" binding:"omitempty"`
 	To        int64  `form:"to" binding:"omitempty"`
-	GroupBy   string `form:"group_by" binding:"omitempty"`
+	GroupBy   string `form:"group_by" binding:"omitempty,oneof=channel hour"`
 }
 
-func (p *MetricsQueryParams) toMetricsQuery() (MetricsQuery, error) {
+func (p *MetricsQueryParams) toMetricsQuery() MetricsQuery {
 	query := MetricsQuery{
 		EventName: p.EventName,
 		GroupBy:   p.GroupBy,
@@ -40,17 +41,17 @@ func (p *MetricsQueryParams) toMetricsQuery() (MetricsQuery, error) {
 		query.To = &t
 	}
 
-	return query, nil
+	return query
 }
 
 type MetricsResponse struct {
 	EventName   string           `json:"event_name"`
 	From        int64            `json:"from,omitempty"`
 	To          int64            `json:"to,omitempty"`
-	GroupedBy   string           `json:"grouped_by"`
-	TotalEvents uint64           `json:"total_events"`
-	UniqueUsers uint64           `json:"unique_users"`
-	Data        []MetricResponse `json:"data"`
+	TotalEvents *uint64          `json:"total_events,omitempty"`
+	UniqueUsers *uint64          `json:"unique_users,omitempty"`
+	GroupedBy   string           `json:"grouped_by,omitempty"`
+	Data        []MetricResponse `json:"data,omitempty"`
 }
 
 type MetricResponse struct {
@@ -64,25 +65,8 @@ type ErrorResponse struct {
 }
 
 func toMetricsResponse(query MetricsQuery, metrics []Metric) MetricsResponse {
-	data := make([]MetricResponse, len(metrics))
-	var totalEvents, uniqueUsers uint64
-
-	for i, m := range metrics {
-		data[i] = MetricResponse{
-			Group:       m.Group,
-			TotalEvents: m.TotalEvents,
-			UniqueUsers: m.UniqueUsers,
-		}
-		totalEvents += m.TotalEvents
-		uniqueUsers += m.UniqueUsers
-	}
-
 	resp := MetricsResponse{
-		EventName:   query.EventName,
-		GroupedBy:   query.GroupBy,
-		TotalEvents: totalEvents,
-		UniqueUsers: uniqueUsers,
-		Data:        data,
+		EventName: query.EventName,
 	}
 
 	if query.From != nil {
@@ -90,6 +74,26 @@ func toMetricsResponse(query MetricsQuery, metrics []Metric) MetricsResponse {
 	}
 	if query.To != nil {
 		resp.To = query.To.Unix()
+	}
+
+	if query.GroupBy == "" {
+		var total, unique uint64
+		if len(metrics) > 0 {
+			total = metrics[0].TotalEvents
+			unique = metrics[0].UniqueUsers
+		}
+		resp.TotalEvents = &total
+		resp.UniqueUsers = &unique
+	} else {
+		resp.GroupedBy = query.GroupBy
+		resp.Data = make([]MetricResponse, len(metrics))
+		for i, m := range metrics {
+			resp.Data[i] = MetricResponse{
+				Group:       m.Group,
+				TotalEvents: m.TotalEvents,
+				UniqueUsers: m.UniqueUsers,
+			}
+		}
 	}
 
 	return resp
@@ -105,16 +109,11 @@ func (h *Handler) GetMetrics(c *gin.Context) {
 		return
 	}
 
-	query, err := params.toMetricsQuery()
-	if err != nil {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "invalid time format, use RFC3339",
-		})
-		return
-	}
+	query := params.toMetricsQuery()
 
 	metrics, err := h.service.GetMetrics(c.Request.Context(), query)
 	if err != nil {
+		log.Printf("failed to fetch metrics: %v", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error: "failed to fetch metrics",
 		})
