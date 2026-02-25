@@ -3,8 +3,9 @@ package events
 import (
 	"context"
 	"fmt"
-	"hash/fnv"
+	"strconv"
 
+	"github.com/cespare/xxhash/v2"
 	"github.com/insider/event-ingestion/kafka"
 )
 
@@ -49,7 +50,12 @@ func (s *Service) ProcessBulk(ctx context.Context, events []Event) error {
 }
 
 func generateEventHash(eventName, userID string, timestamp int64) uint64 {
-	hash := fnv.New64a()
-	hash.Write([]byte(fmt.Sprintf("%s:%s:%d", eventName, userID, timestamp)))
-	return hash.Sum64()
+	var buf [128]byte
+	b := buf[:0]
+	b = append(b, eventName...)
+	b = append(b, ':')
+	b = append(b, userID...)
+	b = append(b, ':')
+	b = strconv.AppendInt(b, timestamp, 10)
+	return xxhash.Sum64(b)
 }

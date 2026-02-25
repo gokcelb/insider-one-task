@@ -83,7 +83,6 @@ services:
       - ./loadtest:/scripts
     command: run /scripts/script.js
     environment:
-      - K6_OUT=json=/scripts/results.json
       - TARGET_HOST=app:8080
       - RESULTS_PATH=/scripts/results.json
     depends_on:
