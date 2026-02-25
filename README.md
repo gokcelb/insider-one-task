@@ -144,6 +144,8 @@ Readiness check (verifies ClickHouse and Kafka connectivity).
 
 The load test ramps up to 2,000 RPS sustained, then spikes to 20,000 RPS.
 
+Although dockerized k6 can skew the results as it shares the same machine with the application and they compete for resources, it's good DX and gives a good idea about the application's performance.
+
 ```bash
 make load-test
 ```
@@ -211,13 +213,8 @@ Below are the two important requirements that allow us to make certain optimizat
 
 Below are some TODOs which I would have implemented given more time, as well as some that are for production-grade apps.
 
-- [ ] Structured logging
-- [ ] Request logging middleware
+- [ ] Structured logging & request logging middleware
 - [ ] Unit and integration tests
 - [ ] Authentication
-- [ ] Better config management (e.g. Viper)
-- [ ] Pagination on `GET /metrics`
 - [ ] OpenAPI/Swagger documentation
-- [ ] Rate limiting
-- [ ] TLS
-- [ ] Prometheus metrics
+- [ ] Monitoring & Alerting
