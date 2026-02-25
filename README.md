@@ -1,6 +1,6 @@
 # Event Ingestion System
 
-A high-throughput event ingestion backend using Go, ClickHouse, and Redpanda that handles ~2,000 events/second average (20,000 peak), with pre-aggregated metrics via materialized views.
+A high-throughput event ingestion backend using Go, ClickHouse, and Redpanda that handles ~2,000 events/second average (20,000 peak), with queryable metrics data.
 
 ## Quick Start
 
@@ -35,16 +35,18 @@ Submit an event for ingestion.
 
 ```json
 {
-  "event_name": "product_view",
-  "channel": "web",
-  "campaign_id": "summer_sale_2024",
-  "user_id": "user_12345",
-  "timestamp": 1708732800,
-  "tags": ["electronics", "featured"],
-  "metadata": {
-    "product_id": "SKU-001",
-    "page_url": "/products/laptop"
-  }
+    "event_name": "product_view",
+    "channel": "web",
+    "campaign_id": "cmp_987",
+    "user_id": "user_123",
+    "timestamp": 1723475612,
+    "tags": ["electronics", "homepage", "flash_sale"],
+    "metadata": {
+        "product_id": "prod-789",
+        "price": 129.99,
+        "currency": "TRY",
+        "referrer": "google"
+    }
 }
 ```
 
@@ -57,8 +59,8 @@ Submit an event for ingestion.
 
 - `event_name`: Required
 - `user_id`: Required
-- `timestamp`: Required, Unix seconds
-- `channel`: Must be one of: web, mobile, api, email, push (or empty)
+- `timestamp`: Required, Unix seconds, must be in the past and positive
+- `channel`: Required, must be one of: web, mobile, api, email, push
 
 ### GET /metrics
 
@@ -67,15 +69,16 @@ Query aggregated metrics.
 **Query Parameters:**
 
 - `event_name` (required): Event name to filter by
-- `event_name` (required): Event name to filter by
-- `from`: Unix timestamp in seconds (default: 24 hours ago)
-- `to`: Unix timestamp in seconds (default: now)
+- `from`: Unix timestamp in seconds
+- `to`: Unix timestamp in seconds
 - `group_by`: Supports "channel", "hour", or "day"
 
-**Example:**
+**Example**
+
+Only filtered by event name.
 
 ```bash
-curl "http://localhost:8080/metrics?event_name=product_view&from=1706745600&to=1706832000&group_by=channel"
+curl "http://localhost:8080/metrics?event_name=product_view"
 ```
 
 **Response:**
@@ -83,11 +86,27 @@ curl "http://localhost:8080/metrics?event_name=product_view&from=1706745600&to=1
 ```json
 {
   "event_name": "product_view",
-  "from": 1723400000,
-  "to": 1723486400,
+  "total_events": 10200,
+  "unique_users": 5100
+}
+```
+
+**Example:**
+
+Filtered by event name and grouped by channel.
+
+```bash
+curl "http://localhost:8080/metrics?event_name=product_view&from=1772024670&to=1772024670&group_by=channel"
+```
+
+**Response:**
+
+```json
+{
+  "event_name": "product_view",
+  "from": 1772024670,
+  "to": 1772024670,
   "grouped_by": "channel",
-  "total_events": 15420,
-  "unique_users": 8905,
   "data": [
     {
       "group": "web",
@@ -95,12 +114,12 @@ curl "http://localhost:8080/metrics?event_name=product_view&from=1706745600&to=1
       "unique_users": 5100
     },
     {
-      "group": "mobile_ios",
+      "group": "mobile",
       "total_events": 3120,
       "unique_users": 2005
     },
     {
-      "group": "mobile_android",
+      "group": "api",
       "total_events": 2100,
       "unique_users": 1800
     }
@@ -120,22 +139,6 @@ Readiness check (verifies ClickHouse and Kafka connectivity).
 
 **Response:** `{"status": "ready"}` or `503` with error details.
 
-## Configuration
-
-Environment variables:
-
-| Variable               | Default         | Description                     |
-| ---------------------- | --------------- | ------------------------------- |
-| `SERVER_PORT`          | 8080            | HTTP server port                |
-| `SERVER_READ_TIMEOUT`  | 5s              | HTTP read timeout               |
-| `SERVER_WRITE_TIMEOUT` | 10s             | HTTP write timeout              |
-| `KAFKA_BROKERS`        | localhost:19092 | Kafka/Redpanda broker addresses |
-| `KAFKA_TOPIC`          | events          | Topic for events                |
-| `CLICKHOUSE_HOST`      | localhost       | ClickHouse host                 |
-| `CLICKHOUSE_PORT`      | 9000            | ClickHouse native port          |
-| `CLICKHOUSE_DATABASE`  | events_db       | Database name                   |
-| `CLICKHOUSE_USERNAME`  | default         | ClickHouse username             |
-| `CLICKHOUSE_PASSWORD`  |                 | ClickHouse password             |
 
 ## Load Testing
 
@@ -153,34 +156,69 @@ Thresholds:
 
 Results are saved to `loadtest/results.json`.
 
-## Project Structure
+---
 
-```
-├── cmd/
-│   └── root.go                     # Entry point
-├── clickhouse/
-│   ├── migrations/                 # Database migrations
-│   │   └── 001_initial_schema.up.sql
-│   ├── repository/
-│   │   └── metrics.go              # Metrics queries
-│   ├── client.go                   # ClickHouse connection
-│   └── migrate.go                  # Migration runner
-├── events/
-│   ├── handler.go                  # POST /events and /events/bulk handlers
-│   ├── model.go                    # Event models
-│   └── service.go                  # Event validation, Kafka publishing
-├── metrics/
-│   ├── handler.go                  # GET /metrics handler
-│   ├── model.go                    # Metrics models
-│   └── service.go                  # Metrics query logic
-├── kafka/
-│   └── producer.go                 # Redpanda producer (franz-go)
-├── config/
-│   └── config.go                   # Environment configuration
-├── loadtest/
-│   └── script.js                   # k6 load test script
-├── docker-compose.yml              # Docker Compose configuration
-├── Dockerfile
-├── Makefile
-└── README.md
-```
+## Technical Decision Making
+
+### Tech Stack
+
+**HTTP Framework:** Gin
+
+Has built-in JSON binding and validation and has good performance.
+
+**Database**: ClickHouse
+
+ClickHouse is specifically built for analytical processing and thrives with large insertions of data at a time without any fine-tuning.
+
+**Message Broker**: Redpanda
+
+It has full on compatibility with Kafka, it's lightweight and easy to setup for local environment.
+
+### Optimizations & Trade-offs
+
+Below are the two important requirements that allow us to make certain optimizations.
+
+> **R1** — *"Metrics endpoint does not need to be fully real-time."*
+> **R2** — *"Ingestion should be near real-time and should not block under load."*
+
+---
+
+#### 1. Deduplication: eventual (database) vs. strict (application layer)
+
+**Optimization:** I'm using `ReplacingMergeTree` for deduplication. ClickHouse merges duplicate rows in the background, which allows for faster inserts and faster `GET /metrics` queries.
+
+**Trade-off:** Duplicate events may show up in metrics for a short time before the next background merge. This is fine because **R1** allows eventual consistency. Doing strict deduplication in the application layer (e.g. checking a Redis set or doing a `SELECT` before each `INSERT`) would avoid this but would add extra latency per event, which goes against **R2**.
+
+---
+
+#### 2. Kafka publish: synchronous vs. fire-and-forget
+
+**Optimization:** I'm synchronously pushing events to the Kafka/Redpanda topic — the handler waits for the broker to acknowledge the write before returning `202 Accepted`. This way, accepted events are durable and won't be silently dropped if the ClickHouse consumer restarts.
+
+**Trade-off:** Waiting for the broker acknowledgement is slower than fire-and-forget. But my load test results show it's still fast enough (average **~15.9 ms**, p95 **~40 ms**), so **R2** is satisfied in practice. The better choice here really depends on the durability requirements. If losing some events under extreme load is acceptable, fire-and-forget would be faster.
+
+---
+
+#### Ingestion flow: API → Kafka → ClickHouse (async batch)
+
+1. **Validate & publish:** The API validates the incoming event and pushes it to the Kafka/Redpanda topic. Validation failures are rejected immediately with no broker write.
+2. **Batch buffering:** Redpanda holds events until `kafka_max_block_size` (65,536 rows by default) or a flush interval is reached. Bulk inserts are much more efficient for ClickHouse than one-insert-per-event.
+3. **Native Kafka Engine:** ClickHouse's built-in Kafka table engine consumes batches directly, eliminating the need for a custom consumer process.
+4. **Query layer:** `GET /metrics` reads from the events table. Background merges handle deduplication over time, keeping query performance high.
+
+---
+
+## TODOs
+
+Below are some TODOs which I would have implemented given more time, as well as some that are for production-grade apps.
+
+- [ ] Structured logging
+- [ ] Request logging middleware
+- [ ] Unit and integration tests
+- [ ] Authentication
+- [ ] Better config management (e.g. Viper)
+- [ ] Pagination on `GET /metrics`
+- [ ] OpenAPI/Swagger documentation
+- [ ] Rate limiting
+- [ ] TLS
+- [ ] Prometheus metrics

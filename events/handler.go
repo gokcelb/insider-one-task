@@ -21,7 +21,7 @@ func NewHandler(service *Service) *Handler {
 
 type EventRequest struct {
 	EventName  string         `json:"event_name" binding:"required"`
-	Channel    string         `json:"channel" binding:"omitempty,oneof=web mobile api email push"`
+	Channel    string         `json:"channel" binding:"required,oneof=web mobile api email push"`
 	CampaignID string         `json:"campaign_id" binding:"omitempty"`
 	UserID     string         `json:"user_id" binding:"required"`
 	Timestamp  int64          `json:"timestamp" binding:"required"`
