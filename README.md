@@ -156,8 +156,6 @@ Thresholds:
 
 Results are saved to `loadtest/results.json`.
 
----
-
 ## Technical Decision Making
 
 ### Tech Stack
@@ -179,9 +177,8 @@ It has full on compatibility with Kafka, it's lightweight and easy to setup for 
 Below are the two important requirements that allow us to make certain optimizations.
 
 > **R1** — *"Metrics endpoint does not need to be fully real-time."*
-> **R2** — *"Ingestion should be near real-time and should not block under load."*
 
----
+> **R2** — *"Ingestion should be near real-time and should not block under load."*
 
 #### 1. Deduplication: eventual (database) vs. strict (application layer)
 
@@ -189,15 +186,11 @@ Below are the two important requirements that allow us to make certain optimizat
 
 **Trade-off:** Duplicate events may show up in metrics for a short time before the next background merge. This is fine because **R1** allows eventual consistency. Doing strict deduplication in the application layer (e.g. checking a Redis set or doing a `SELECT` before each `INSERT`) would avoid this but would add extra latency per event, which goes against **R2**.
 
----
-
 #### 2. Kafka publish: synchronous vs. fire-and-forget
 
 **Optimization:** I'm synchronously pushing events to the Kafka/Redpanda topic — the handler waits for the broker to acknowledge the write before returning `202 Accepted`. This way, accepted events are durable and won't be silently dropped if the ClickHouse consumer restarts.
 
 **Trade-off:** Waiting for the broker acknowledgement is slower than fire-and-forget. But my load test results show it's still fast enough (average **~15.9 ms**, p95 **~40 ms**), so **R2** is satisfied in practice. The better choice here really depends on the durability requirements. If losing some events under extreme load is acceptable, fire-and-forget would be faster.
-
----
 
 #### Ingestion flow: API → Kafka → ClickHouse (async batch)
 
@@ -205,8 +198,6 @@ Below are the two important requirements that allow us to make certain optimizat
 2. **Batch buffering:** Redpanda holds events until `kafka_max_block_size` (65,536 rows by default) or a flush interval is reached. Bulk inserts are much more efficient for ClickHouse than one-insert-per-event.
 3. **Native Kafka Engine:** ClickHouse's built-in Kafka table engine consumes batches directly, eliminating the need for a custom consumer process.
 4. **Query layer:** `GET /metrics` reads from the events table. Background merges handle deduplication over time, keeping query performance high.
-
----
 
 ## TODOs
 
