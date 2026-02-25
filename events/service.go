@@ -9,13 +9,18 @@ import (
 	"github.com/insider/event-ingestion/kafka"
 )
 
-type Service struct {
-	producer *kafka.Producer
+type eventPublisher interface {
+	Publish(ctx context.Context, msg kafka.EventMessage) error
+	PublishBulk(ctx context.Context, msgs []kafka.EventMessage) error
 }
 
-func NewService(producer *kafka.Producer) *Service {
+type Service struct {
+	publisher eventPublisher
+}
+
+func NewService(publisher eventPublisher) *Service {
 	return &Service{
-		producer: producer,
+		publisher: publisher,
 	}
 }
 
@@ -26,7 +31,7 @@ func (s *Service) ProcessEvent(ctx context.Context, event Event) error {
 		return fmt.Errorf("failed to convert event to kafka message: %w", err)
 	}
 
-	if err := s.producer.Publish(ctx, msg); err != nil {
+	if err := s.publisher.Publish(ctx, msg); err != nil {
 		return fmt.Errorf("failed to publish event: %w", err)
 	}
 	return nil
@@ -43,7 +48,7 @@ func (s *Service) ProcessBulk(ctx context.Context, events []Event) error {
 		msgs[i] = msg
 	}
 
-	if err := s.producer.PublishBulk(ctx, msgs); err != nil {
+	if err := s.publisher.PublishBulk(ctx, msgs); err != nil {
 		return fmt.Errorf("failed to publish events: %w", err)
 	}
 	return nil

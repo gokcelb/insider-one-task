@@ -3,15 +3,20 @@ package metrics
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/insider/event-ingestion/clickhouse/repository"
 )
 
-type Service struct {
-	repo *repository.MetricsRepository
+type metricsRepository interface {
+	GetMetrics(ctx context.Context, eventName string, startTime, endTime *time.Time, groupBy string) ([]repository.MetricRow, error)
 }
 
-func NewService(repo *repository.MetricsRepository) *Service {
+type Service struct {
+	repo metricsRepository
+}
+
+func NewService(repo metricsRepository) *Service {
 	return &Service{repo: repo}
 }
 

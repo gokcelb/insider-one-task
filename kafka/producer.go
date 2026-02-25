@@ -12,11 +12,6 @@ import (
 	"github.com/insider/event-ingestion/config"
 )
 
-type EventPublisher interface {
-	Publish(ctx context.Context, msg EventMessage) error
-	PublishBulk(ctx context.Context, msgs []EventMessage) error
-}
-
 type Producer struct {
 	writer *kafkago.Writer
 	addr   string
