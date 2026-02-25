@@ -150,11 +150,19 @@ make load-test
 
 Thresholds:
 
-- p95 latency < 100ms
-- p99 latency < 200ms
+- p95 latency < 60ms
+- p99 latency < 150ms
 - Error rate < 1%
 
 Results are saved to `loadtest/results.json`.
+
+Example result:
+
+| Threshold | Result | Status |
+| --- | --- | --- |
+| p95 < 60ms | 48.5ms | Pass |
+| p99 < 150ms | 72.5ms | Pass |
+| Error rate < 1% | 0% | Pass |
 
 ## Technical Decision Making
 

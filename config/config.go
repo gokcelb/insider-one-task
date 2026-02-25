@@ -2,9 +2,10 @@ package config
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
-	"github.com/kelseyhightower/envconfig"
+	"github.com/spf13/viper"
 )
 
 type Config struct {
@@ -14,28 +15,47 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port         int           `envconfig:"SERVER_PORT" default:"8080"`
-	ReadTimeout  time.Duration `envconfig:"SERVER_READ_TIMEOUT" default:"5s"`
-	WriteTimeout time.Duration `envconfig:"SERVER_WRITE_TIMEOUT" default:"10s"`
+	Port         int           `mapstructure:"port"`
+	ReadTimeout  time.Duration `mapstructure:"read_timeout"`
+	WriteTimeout time.Duration `mapstructure:"write_timeout"`
 }
 
 type KafkaConfig struct {
-	Brokers []string `envconfig:"KAFKA_BROKERS" default:"localhost:19092"`
-	Topic   string   `envconfig:"KAFKA_TOPIC" default:"events"`
+	Brokers []string `mapstructure:"brokers"`
+	Topic   string   `mapstructure:"topic"`
 }
 
 type ClickHouseConfig struct {
-	Host     string `envconfig:"CLICKHOUSE_HOST" default:"localhost"`
-	Port     int    `envconfig:"CLICKHOUSE_PORT" default:"9000"`
-	Database string `envconfig:"CLICKHOUSE_DATABASE" default:"events_db"`
-	Username string `envconfig:"CLICKHOUSE_USERNAME" default:"default"`
-	Password string `envconfig:"CLICKHOUSE_PASSWORD" default:""`
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	Database string `mapstructure:"database"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
 }
 
 func Load() (*Config, error) {
+	v := viper.New()
+
+	v.SetDefault("server.port", 8080)
+	v.SetDefault("server.read_timeout", "5s")
+	v.SetDefault("server.write_timeout", "10s")
+
+	v.SetDefault("kafka.brokers", []string{"localhost:19092"})
+	v.SetDefault("kafka.topic", "events")
+
+	v.SetDefault("clickhouse.host", "localhost")
+	v.SetDefault("clickhouse.port", 9000)
+	v.SetDefault("clickhouse.database", "events_db")
+	v.SetDefault("clickhouse.username", "default")
+	v.SetDefault("clickhouse.password", "")
+
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	v.AutomaticEnv()
+
 	var cfg Config
-	if err := envconfig.Process("", &cfg); err != nil {
-		return nil, fmt.Errorf("failed to process env config: %w", err)
+	if err := v.Unmarshal(&cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
+
 	return &cfg, nil
 }

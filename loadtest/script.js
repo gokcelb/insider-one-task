@@ -22,7 +22,8 @@ const eventNames = [
 ];
 
 export const options = {
-  scenarios: {
+    summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
+    scenarios: {
     ingestion_test: {
       executor: 'ramping-arrival-rate',
       startRate: 0,
@@ -41,7 +42,7 @@ export const options = {
     },
   },
   thresholds: {
-    http_req_duration: ['p(95)<100', 'p(99)<200'],
+    http_req_duration: ['p(95)<60', 'p(99)<150'],
     errors: ['rate<0.01'],
   },
 };
