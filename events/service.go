@@ -20,20 +20,23 @@ func NewService(producer *kafka.Producer) *Service {
 
 func (s *Service) ProcessEvent(ctx context.Context, event Event) error {
 	event.EventHash = generateEventHash(event.EventName, event.UserID, event.Timestamp)
-	msg := event.ToKafkaMessage()
-
-	if err := s.producer.Publish(ctx, msg); err != nil {
+	msg, err := event.ToKafkaMessage()
+	if err != nil {
 		return err
 	}
 
-	return nil
+	return s.producer.Publish(ctx, msg)
 }
 
 func (s *Service) ProcessBulk(ctx context.Context, events []Event) error {
 	msgs := make([]kafka.EventMessage, len(events))
 	for i := range events {
 		events[i].EventHash = generateEventHash(events[i].EventName, events[i].UserID, events[i].Timestamp)
-		msgs[i] = events[i].ToKafkaMessage()
+		msg, err := events[i].ToKafkaMessage()
+		if err != nil {
+			return err
+		}
+		msgs[i] = msg
 	}
 
 	return s.producer.PublishBulk(ctx, msgs)

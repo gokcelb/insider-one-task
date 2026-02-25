@@ -4,16 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"strconv"
 
-	"github.com/twmb/franz-go/pkg/kgo"
+	kafkago "github.com/segmentio/kafka-go"
+	"github.com/segmentio/kafka-go/compress"
 
 	"github.com/insider/event-ingestion/config"
 )
 
 type Producer struct {
-	client *kgo.Client
-	topic  string
+	writer *kafkago.Writer
+	addr   string
 }
 
 type EventMessage struct {
@@ -28,21 +29,17 @@ type EventMessage struct {
 }
 
 func NewProducer(cfg config.KafkaConfig) (*Producer, error) {
-	opts := []kgo.Opt{
-		kgo.SeedBrokers(cfg.Brokers...),
-		kgo.DefaultProduceTopic(cfg.Topic),
-		kgo.ProducerBatchCompression(kgo.Lz4Compression()),
-		kgo.AllowAutoTopicCreation(),
-	}
-
-	client, err := kgo.NewClient(opts...)
-	if err != nil {
-		return nil, err
+	writer := &kafkago.Writer{
+		Addr:         kafkago.TCP(cfg.Brokers...),
+		Topic:        cfg.Topic,
+		Balancer:     &kafkago.LeastBytes{},
+		Compression:  compress.Lz4,
+		RequiredAcks: kafkago.RequireAll,
 	}
 
 	return &Producer{
-		client: client,
-		topic:  cfg.Topic,
+		writer: writer,
+		addr:   cfg.Brokers[0],
 	}, nil
 }
 
@@ -52,34 +49,47 @@ func (p *Producer) Publish(ctx context.Context, msg EventMessage) error {
 		return err
 	}
 
-	record := &kgo.Record{
-		Topic: p.topic,
-		Key:   []byte(fmt.Sprintf("%d", msg.EventHash)),
+	return p.writer.WriteMessages(ctx, kafkago.Message{
+		Key:   strconv.AppendUint(nil, msg.EventHash, 10),
 		Value: data,
-	}
-
-	p.client.Produce(ctx, record, func(r *kgo.Record, err error) {
-		if err != nil {
-			log.Printf("async produce error: %v", err)
-		}
 	})
-
-	return nil
 }
 
 func (p *Producer) PublishBulk(ctx context.Context, msgs []EventMessage) error {
-	for _, msg := range msgs {
-		if err := p.Publish(ctx, msg); err != nil {
+	messages := make([]kafkago.Message, len(msgs))
+	for i, msg := range msgs {
+		data, err := json.Marshal(msg)
+		if err != nil {
 			return err
 		}
+		messages[i] = kafkago.Message{
+			Key:   strconv.AppendUint(nil, msg.EventHash, 10),
+			Value: data,
+		}
 	}
-	return nil
+
+	return p.writer.WriteMessages(ctx, messages...)
 }
 
 func (p *Producer) Close() {
-	p.client.Close()
+	p.writer.Close()
 }
 
 func (p *Producer) Ping(ctx context.Context) error {
-	return p.client.Ping(ctx)
+	conn, err := kafkago.Dial("tcp", p.addr)
+	if err != nil {
+		return fmt.Errorf("failed to connect to kafka: %w", err)
+	}
+	defer conn.Close()
+
+	if deadline, ok := ctx.Deadline(); ok {
+		conn.SetDeadline(deadline)
+	}
+
+	_, err = conn.Brokers()
+	if err != nil {
+		return fmt.Errorf("failed to list brokers: %w", err)
+	}
+
+	return nil
 }

@@ -2,6 +2,7 @@ package events
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/insider/event-ingestion/kafka"
 )
@@ -17,8 +18,11 @@ type Event struct {
 	Metadata   map[string]any
 }
 
-func (e *Event) ToKafkaMessage() kafka.EventMessage {
-	metadataJSON, _ := json.Marshal(e.Metadata)
+func (e *Event) ToKafkaMessage() (kafka.EventMessage, error) {
+	metadataJSON, err := json.Marshal(e.Metadata)
+	if err != nil {
+		return kafka.EventMessage{}, fmt.Errorf("failed to marshal metadata: %w", err)
+	}
 
 	return kafka.EventMessage{
 		EventHash:  e.EventHash,
@@ -29,5 +33,5 @@ func (e *Event) ToKafkaMessage() kafka.EventMessage {
 		Timestamp:  e.Timestamp,
 		Tags:       e.Tags,
 		Metadata:   string(metadataJSON),
-	}
+	}, nil
 }
