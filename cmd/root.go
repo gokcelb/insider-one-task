@@ -30,7 +30,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create kafka producer: %v", err)
 	}
-	defer producer.Close()
+	defer func() {
+		if err := producer.Close(); err != nil {
+			log.Printf("failed to close kafka producer: %v", err)
+		}
+	}()
 
 	chClient, err := clickhouse.NewClient(cfg.ClickHouse)
 	if err != nil {

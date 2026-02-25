@@ -22,10 +22,13 @@ func (s *Service) ProcessEvent(ctx context.Context, event Event) error {
 	event.EventHash = generateEventHash(event.EventName, event.UserID, event.Timestamp)
 	msg, err := event.ToKafkaMessage()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to convert event to kafka message: %w", err)
 	}
 
-	return s.producer.Publish(ctx, msg)
+	if err := s.producer.Publish(ctx, msg); err != nil {
+		return fmt.Errorf("failed to publish event: %w", err)
+	}
+	return nil
 }
 
 func (s *Service) ProcessBulk(ctx context.Context, events []Event) error {
@@ -34,12 +37,15 @@ func (s *Service) ProcessBulk(ctx context.Context, events []Event) error {
 		events[i].EventHash = generateEventHash(events[i].EventName, events[i].UserID, events[i].Timestamp)
 		msg, err := events[i].ToKafkaMessage()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to convert event at index %d to kafka message: %w", i, err)
 		}
 		msgs[i] = msg
 	}
 
-	return s.producer.PublishBulk(ctx, msgs)
+	if err := s.producer.PublishBulk(ctx, msgs); err != nil {
+		return fmt.Errorf("failed to publish events: %w", err)
+	}
+	return nil
 }
 
 func generateEventHash(eventName, userID string, timestamp int64) uint64 {

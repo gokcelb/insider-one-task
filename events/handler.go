@@ -1,6 +1,7 @@
 package events
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -63,6 +64,7 @@ func (h *Handler) PostEvent(c *gin.Context) {
 	event := req.toEvent()
 
 	if err := h.service.ProcessEvent(c.Request.Context(), event); err != nil {
+		log.Printf("failed to process event: %v", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error: "internal server error",
 		})
@@ -90,6 +92,7 @@ func (h *Handler) PostEventBulk(c *gin.Context) {
 	}
 
 	if err := h.service.ProcessBulk(c.Request.Context(), events); err != nil {
+		log.Printf("failed to process bulk events: %v", err)
 		c.JSON(http.StatusInternalServerError, ErrorResponse{
 			Error: "internal server error",
 		})

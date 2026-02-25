@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/kelseyhightower/envconfig"
@@ -34,7 +35,7 @@ type ClickHouseConfig struct {
 func Load() (*Config, error) {
 	var cfg Config
 	if err := envconfig.Process("", &cfg); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to process env config: %w", err)
 	}
 	return &cfg, nil
 }

@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/insider/event-ingestion/clickhouse/repository"
 )
@@ -17,7 +18,7 @@ func NewService(repo *repository.MetricsRepository) *Service {
 func (s *Service) GetMetrics(ctx context.Context, query MetricsQuery) ([]Metric, error) {
 	rows, err := s.repo.GetMetrics(ctx, query.EventName, query.From, query.To, query.GroupBy)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get metrics: %w", err)
 	}
 
 	metrics := make([]Metric, len(rows))
