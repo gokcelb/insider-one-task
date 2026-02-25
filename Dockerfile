@@ -16,7 +16,6 @@ RUN apk add --no-cache ca-certificates wget
 WORKDIR /app
 
 COPY --from=builder /app/server .
-COPY --from=builder /app/clickhouse/migrations ./clickhouse/migrations
 
 EXPOSE 8080
 

@@ -42,7 +42,7 @@ func main() {
 	}
 	defer chClient.Close()
 
-	if err := clickhouse.RunMigrations(cfg.ClickHouse, "clickhouse/migrations"); err != nil {
+	if err := clickhouse.RunMigrations(cfg.ClickHouse); err != nil {
 		log.Fatalf("failed to run migrations: %v", err)
 	}
 

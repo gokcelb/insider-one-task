@@ -30,11 +30,12 @@ type EventMessage struct {
 
 func NewProducer(cfg config.KafkaConfig) (*Producer, error) {
 	writer := &kafkago.Writer{
-		Addr:         kafkago.TCP(cfg.Brokers...),
-		Topic:        cfg.Topic,
-		Balancer:     &kafkago.LeastBytes{},
-		Compression:  compress.Lz4,
-		RequiredAcks: kafkago.RequireAll,
+		Addr:                   kafkago.TCP(cfg.Brokers...),
+		Topic:                  cfg.Topic,
+		Balancer:               &kafkago.LeastBytes{},
+		Compression:            compress.Lz4,
+		RequiredAcks:           kafkago.RequireAll,
+		AllowAutoTopicCreation: true,
 	}
 
 	return &Producer{
@@ -46,7 +47,7 @@ func NewProducer(cfg config.KafkaConfig) (*Producer, error) {
 func (p *Producer) Publish(ctx context.Context, msg EventMessage) error {
 	data, err := json.Marshal(msg)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal event message: %w", err)
 	}
 
 	return p.writer.WriteMessages(ctx, kafkago.Message{
@@ -60,7 +61,7 @@ func (p *Producer) PublishBulk(ctx context.Context, msgs []EventMessage) error {
 	for i, msg := range msgs {
 		data, err := json.Marshal(msg)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to marshal event message: %w", err)
 		}
 		messages[i] = kafkago.Message{
 			Key:   strconv.AppendUint(nil, msg.EventHash, 10),
@@ -71,8 +72,8 @@ func (p *Producer) PublishBulk(ctx context.Context, msgs []EventMessage) error {
 	return p.writer.WriteMessages(ctx, messages...)
 }
 
-func (p *Producer) Close() {
-	p.writer.Close()
+func (p *Producer) Close() error {
+	return p.writer.Close()
 }
 
 func (p *Producer) Ping(ctx context.Context) error {
