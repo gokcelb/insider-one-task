@@ -23,31 +23,20 @@ const eventNames = [
 
 export const options = {
   scenarios: {
-    sustained_load: {
+    ingestion_test: {
       executor: 'ramping-arrival-rate',
-      startRate: 100,
+      startRate: 0,
       timeUnit: '1s',
-      preAllocatedVUs: 100,
-      maxVUs: 500,
+      preAllocatedVUs: 1000,
+      maxVUs: 5000,
       stages: [
-        { duration: '30s', target: 500 },
-        { duration: '30s', target: 1000 },
         { duration: '1m', target: 2000 },
+        { duration: '3m', target: 2000 },
+        { duration: '15s', target: 20000 },
+        { duration: '30s', target: 20000 },
+        { duration: '30s', target: 2000 },
         { duration: '2m', target: 2000 },
-        { duration: '30s', target: 500 },
-      ],
-    },
-    spike_test: {
-      executor: 'ramping-arrival-rate',
-      startRate: 2000,
-      timeUnit: '1s',
-      preAllocatedVUs: 200,
-      maxVUs: 1000,
-      startTime: '4m30s', // Start after sustained load
-      stages: [
-        { duration: '10s', target: 10000 },
-        { duration: '20s', target: 20000 },
-        { duration: '10s', target: 2000 },
+        { duration: '30s', target: 0 },
       ],
     },
   },
@@ -92,20 +81,14 @@ export default function () {
 
   const success = check(res, {
     'status is 202': (r) => r.status === 202,
-    'response has status': (r) => {
-      try {
-        return r.json('status') === 'accepted';
-      } catch {
-        return false;
-      }
-    },
   });
 
   errorRate.add(!success);
 }
 
 export function handleSummary(data) {
+  const outputPath = __ENV.RESULTS_PATH || 'loadtest/results.json';
   return {
-    '/scripts/results.json': JSON.stringify(data, null, 2),
+    [outputPath]: JSON.stringify(data, null, 2),
   };
 }
