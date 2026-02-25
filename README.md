@@ -15,6 +15,9 @@ make ready
 # Send a test event
 make test-event
 
+# Send a bulk test
+make test-bulk-event
+
 # Query metrics
 make test-metrics
 
@@ -61,6 +64,52 @@ Submit an event for ingestion.
 - `user_id`: Required
 - `timestamp`: Required, Unix seconds, must be in the past and positive
 - `channel`: Required, must be one of: web, mobile, api, email, push
+
+### POST /events/bulk
+
+Submit multiple events in a single request (up to 1,000 events per call).
+
+**Request:**
+
+```json
+{
+    "events": [
+        {
+            "event_name": "product_view",
+            "channel": "web",
+            "campaign_id": "cmp_987",
+            "user_id": "user_123",
+            "timestamp": 1723475612,
+            "tags": ["electronics", "homepage"],
+            "metadata": {
+                "product_id": "prod-789"
+            }
+        },
+        {
+            "event_name": "product_view",
+            "channel": "mobile",
+            "campaign_id": "cmp_987",
+            "user_id": "user_456",
+            "timestamp": 1723475620,
+            "tags": ["homepage"],
+            "metadata": {
+                "product_id": "prod-949"
+            }
+        }
+    ]
+}
+```
+
+**Response:**
+
+- `202 Accepted`: `{"status": "accepted"}`
+- `400 Bad Request`: `{"error": "validation error message"}`
+
+**Validation Rules:**
+
+- `events`: Required array, maximum 1000 items
+- Each event follows the same validation rules as `POST /events`
+- If any event has an invalid timestamp, the entire batch is rejected with the index of the offending event (e.g. `event[2]: invalid timestamp: ...`)
 
 ### GET /metrics
 
@@ -158,7 +207,7 @@ Thresholds:
 
 Results are saved to `loadtest/results.json`.
 
-Example result:
+Real example result from my local machine:
 
 | Threshold | Result | Status |
 | --- | --- | --- |

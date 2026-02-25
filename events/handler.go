@@ -49,7 +49,7 @@ func (r *EventRequest) toEvent() Event {
 }
 
 type BulkEventRequest struct {
-	Events []EventRequest `json:"events" binding:"required,max=10000,dive"`
+	Events []EventRequest `json:"events" binding:"required,max=1000,dive"`
 }
 
 type EventResponse struct {
